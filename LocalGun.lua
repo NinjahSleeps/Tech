@@ -1,119 +1,121 @@
 -- Services --
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage") -- Referencing Replicated Storage
+local Players = game:GetService("Players") -- Referencing Players
+local UIS = game:GetService("UserInputService") -- Referencing User Input Service to get when a player presses a button
+local TweenService = game:GetService("TweenService") -- Referencing Tween Service to animate UI
+local Debris = game:GetService("Debris") -- Referencing Debris Service to eliminate any instance.new objects
 
 -- Initial Scripts --
-local GUN = script.Parent
-local SHOOTPART = GUN:WaitForChild("Shootpart")
-local Player = Players.LocalPlayer
-local Mouse = Player:GetMouse()
+local GUN = script.Parent -- Referencing the tool this is attached to so I dont have to constantly copy and paste it
+local SHOOTPART = GUN:WaitForChild("Shootpart") -- The part where the beam comes out of
+local Player = Players.LocalPlayer -- Referenceing the player
+local Mouse = Player:GetMouse() -- Getting the players mouse so we can get where they click
 
 -- Modules --
-local ClientServices = require(ReplicatedStorage:WaitForChild("ClientServices"))
-local GunSettings = require(GUN:WaitForChild("GunLocal"):WaitForChild("GunSettings"))
+local GunSettings = require(GUN:WaitForChild("GunLocal"):WaitForChild("GunSettings")) -- The Gun Scripts client settings (For getting max ammo, fire rate etc)
 
 -- Gun Settings --
-local Ammo = GunSettings.Ammo
-local MaxAmmo = GunSettings.MaxAmmo
+local Ammo = GunSettings.Ammo -- Copying the guns ammo over to a variable here
+local MaxAmmo = GunSettings.MaxAmmo -- Copying the guns max ammo to a variable here
 
 -- Gun Variables
-local totalDamage = 0
-local fadeTimerId = 0
-local indicatorVisible = false
-local CurrentRotation = -180
-local Debounce = false
-local RELOADDEBOUNCE = false
-local IsReloading = false
-local Equipped = false
-local totalDamage
-local FadeDelay = 1
-local FadeTime = 0.1
-local ShowTIme = 0.85
-local fadeTimerId = 0
-local totalDamage = 0
-local indicatorVisible = false
-local Holding = false
+local totalDamage = 0 -- This is the variable for my Stack Damage indicators that shows how much total damage has been dealt prior to resetting
+local fadeTimerId = 0 -- This is the variable for my fade timer for how long until the stack damage indicator has until it resets and disappears (Tweens itself to not be visible)
+local indicatorVisible = false -- Checking if the damage indicator is currently visible
+local CurrentRotation = -180 -- The current rotation for the Hit Marker (If the hitmarker option is set to "Rotate")
+local Debounce = false -- This is the debounce variable for the gun in between each shot
+local RELOADDEBOUNCE = false -- This is the debounce for each reload tick
+local IsReloading = false -- This variable is to check if the player is currently reloading
+local Equipped = false -- Checking if the gun is currently equipped
+local FadeDelay = 1 -- This is the Delay until the "Stack" damage indicator fades away
+local FadeTime = 0.1 -- This is the time the "Stack" damage indicator takes to fade away
+local ShowTIme = 0.85 -- This is how long the "Stack" damage indicator is shown for
+local indicatorVisible = false -- This is used to help set how long the fade timer is visible for
+local Holding = false -- This is to check if the player is holding the gun
 
 -- Remote Events --
-local RemoteEvents= ReplicatedStorage:WaitForChild("RemoteEvents")
-local Event:RemoteEvent = RemoteEvents:WaitForChild("Shoot")
-local KillmarkerEvent:RemoteEvent = RemoteEvents:WaitForChild("KillEvent")
+local RemoteEvents= ReplicatedStorage:WaitForChild("RemoteEvents") -- Referencing my Remote Events folder
+local Event = RemoteEvents:WaitForChild("Shoot") -- Referencing my Shoot Event
+local KillmarkerEvent = RemoteEvents:WaitForChild("KillEvent") -- Referencing my Kill Event
 
 -- UI --
-local StarterGui = Player.PlayerGui
-local Main = StarterGui:WaitForChild("UI")
-local AmmoBar = Main:WaitForChild("Main"):WaitForChild("CanvasGroup"):WaitForChild("AmmoBar")
-local AmmoCircle = AmmoBar:WaitForChild("UIStroke"):WaitForChild("UIGradient")
-local CanvasGroup = Main:WaitForChild("Main"):WaitForChild("CanvasGroup")
-local IconTweenFrame = Main:WaitForChild("Main"):WaitForChild("CanvasGroup"):WaitForChild("IconTween")
-local PageLayout = IconTweenFrame:WaitForChild("UIPageLayout")
+local StarterGui = Player.PlayerGui -- Getting the Players UI
+local Main = StarterGui:WaitForChild("UI") -- Getting the Main UI for the gun
+local AmmoBar = Main:WaitForChild("Main"):WaitForChild("CanvasGroup"):WaitForChild("AmmoBar") -- Getting the Ammo bar for the gun
+local AmmoCircle = AmmoBar:WaitForChild("UIStroke"):WaitForChild("UIGradient") -- Getting the Ammo "Circle" (Aka the bar around the circle)
+local CanvasGroup = Main:WaitForChild("Main"):WaitForChild("CanvasGroup") -- Getting the canvas group that the gun icon is visible for
+local IconTweenFrame = Main:WaitForChild("Main"):WaitForChild("CanvasGroup"):WaitForChild("IconTween") -- The UI holder which contains all of the gun icons
+local PageLayout = IconTweenFrame:WaitForChild("UIPageLayout") -- Getting the page layout from the IconTweenFrame
 
 -- Sounds --
-local Sounds = GUN:WaitForChild("Handle"):WaitForChild("Sounds")
-local ReloadSound = Sounds:WaitForChild("Reload")
-local ShootSound = Sounds:WaitForChild("Shoot")
-local ConsistentReload = Sounds:WaitForChild("ConsistentReload")
-local HitSound = Sounds:WaitForChild("Hit")
+local Sounds = GUN:WaitForChild("Handle"):WaitForChild("Sounds") -- Getting all of the sounds for the gun
+local ReloadSound = Sounds:WaitForChild("Reload") -- The Reload Sound
+local ShootSound = Sounds:WaitForChild("Shoot") -- The Shoot Sound
+local ConsistentReload = Sounds:WaitForChild("ConsistentReload") -- The "Tick" sound in between each pellet being reloaded for the gun
+local HitSound = Sounds:WaitForChild("Hit") -- THe hit sound for whenever a player hits another player
 
 -- Setting Values --
-local Settings = Player:WaitForChild("Settings")
-local HitmarkerTypeSetting:StringValue = Settings:WaitForChild("HitmarkerType")
-local KillmarkerSetting:BoolValue = Settings:WaitForChild("Killmarker")
+local Settings = Player:WaitForChild("Settings") -- The settings folder created by the server, which is parented inside of the Player
+local HitmarkerTypeSetting:StringValue = Settings:WaitForChild("HitmarkerType") -- The Setting which determines which Hitmarker Type to use
+local KillmarkerSetting:BoolValue = Settings:WaitForChild("Killmarker") -- The setting which determines if the Kill Marker is on or not
 
 -- Cursor UI --
-local CursorUi = StarterGui:WaitForChild("CursorUi")
-local CursorFrame = CursorUi:WaitForChild("Frame")
-local KillMarker = CursorFrame:WaitForChild("KillMarker")
-local KillMarkerStroke = KillMarker:WaitForChild("UIStroke")
-local HitmarkerUi = CursorFrame:WaitForChild("Hitmarker")
-local HitmarkerImage = HitmarkerUi:WaitForChild("HitmarkerIcon")
+local CursorUi = StarterGui:WaitForChild("CursorUi") -- Getting the UI that constantly follows the cursor 
+local CursorFrame = CursorUi:WaitForChild("Frame") -- The frame thats constantly following the cursor
+local KillMarker = CursorFrame:WaitForChild("KillMarker") -- The Killmarker Image thats a child inside of the Cursor Frame
+local KillMarkerStroke = KillMarker:WaitForChild("UIStroke") -- The stroke of the killmarker
 
 -- Hitmarker UI -- 
-local HitmarkerUi = CursorFrame:WaitForChild("Hitmarker")
-local HitmarkerImage = HitmarkerUi:WaitForChild("HitmarkerIcon")
+local HitmarkerUi = CursorFrame:WaitForChild("Hitmarker") -- The Hit Marker UI Frame
+local HitmarkerImage = HitmarkerUi:WaitForChild("HitmarkerIcon") -- The Hitmarker UI Image
 
 -- Functions --
+-- This function is for tweening the transparency of the UI 
+function tweenTransparency(guiObject, targetTransparency, duration) -- This gets the UI object, what to tween the transparency to, and how long it should take to complete each tween
+	for _, obj in ipairs(guiObject:GetDescendants()) do -- for each object inside of the GUI object, get all of the descendents inside
+		if obj:IsA("TextLabel")  then -- if the descendant is a text label then: 
+			TweenService:Create(obj, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextTransparency = targetTransparency,}):Play() -- Tween the transparency of the text by its duration, set the transparencyt to whatever the target transparency is, with the quad easing style, and out option.
+		end
+	end
+end
 
--- Updates the ammo bar ui (Which is a circle --
-function ClientServices:UpdateCircle(Ammo, MaxAmmo)
-	if Equipped == true then
-		AmmoCircle.Parent.Color = Color3.fromRGB(255, 255, 255)
-	
-		if Ammo < MaxAmmo then
+-- Updates the ammo bar ui (Which is a circle) --
+function ClientServices:UpdateCircle(Ammo, MaxAmmo) --  We get the Ammo/Max Ammo of the gun to see what the size needs to be set to
+	if Equipped == true then -- If the gun is currently equipped then:
+		AmmoCircle.Parent.Color = Color3.fromRGB(255, 255, 255) -- Change the color of the ammo circle to show its equipped
+		
+		if Ammo < MaxAmmo then -- If the players ammo isnt fully loaded then:
 	
 			-- Edits the transparency of the "AmmoCircle" (Which is the ui gradient for the stroke of the "Ammo Bar UI")--
-			AmmoCircle.Transparency = NumberSequence.new(
+			AmmoCircle.Transparency = NumberSequence.new( -- Change the circles "UI Gradients" transparency
 				{
-					NumberSequenceKeypoint.new(0,0),
-					NumberSequenceKeypoint.new(Ammo/MaxAmmo,0),
-					NumberSequenceKeypoint.new((Ammo/MaxAmmo)+.001,1),
-					NumberSequenceKeypoint.new(1,1),
+					NumberSequenceKeypoint.new(0,0),-- Set to 0
+					NumberSequenceKeypoint.new(Ammo/MaxAmmo,0), -- Set to whatever Ammo/MaxAmmo is (If this is 1 then it'll be full so we divide it to ensure we display how full the gun should be)
+					NumberSequenceKeypoint.new((Ammo/MaxAmmo)+.001,1), -- Similar top the top, however we incriment it by .001 so its not exactly the same, and properly displays how much ammo is inside of the gun
+					NumberSequenceKeypoint.new(1,1), -- Sets the final keypoint to 1 so that the right side is visible
 				}
 	
 			)
-		elseif Ammo == MaxAmmo then
+		elseif Ammo == MaxAmmo then -- If the gun's ammo is full then:
 			-- If the ammo is max itll just make the circle appear full --
-			AmmoCircle.Transparency = NumberSequence.new(
+			AmmoCircle.Transparency = NumberSequence.new( -- Edit the circles "UI Gradients" transparency so that:
 				{
-					NumberSequenceKeypoint.new(0,0),
-					NumberSequenceKeypoint.new(1,0),
+					NumberSequenceKeypoint.new(0,0),-- The left side is fully visible
+					NumberSequenceKeypoint.new(1,0), -- And the right side is fully visible
 				}
 	
 			)
 		elseif Ammo == 0 then
 			-- If the ammo is empty itll 0 it --
-			AmmoCircle.Transparency = NumberSequence.new(
+			AmmoCircle.Transparency = NumberSequence.new( -- edit the circles "UI Gradients" transparency to:
 				{
-					NumberSequenceKeypoint.new(0,1),
-					NumberSequenceKeypoint.new(1,1),
+					NumberSequenceKeypoint.new(0,1), -- Set the left side to be invisible
+					NumberSequenceKeypoint.new(1,1), -- And the right side to be invisible
 				}
 	
 			)
 		end
-		local Percentage = (Ammo/MaxAmmo)*100
+		local Percentage = (Ammo/MaxAmmo)*100 -- This essentially returns a percentage of the Ammo
 	
 		-- This converts the ammo from an amount to a percentage --
 		Main:WaitForChild("Main"):WaitForChild("CanvasGroup"):WaitForChild("AmmoPercentage").Text = math.round(Percentage) .. "%"
@@ -121,173 +123,159 @@ function ClientServices:UpdateCircle(Ammo, MaxAmmo)
 end
 
 -- Damage Indicator --
-local function indicate(Part, Damage, Firerate, Charge, ChargeDamage)
+local function indicate(Part, Damage, Firerate, Charge, ChargeDamage) -- Here whenever a damage indicator is being made we get: The part it hit, the damage being inflicted, the fire rate of the gun (To properly display our stack indicator for a set amount of time), checking if theres charge (For recon or charge guns), and if there is charge then how much the damage for the charge is.
 	-- Checks if the Damage Indicator Setting is true --
 	if Settings:WaitForChild("DmgIndicator").Value == true then
 		-- If the setting value is stack, then: --
 		if Settings:WaitForChild("Stack").Value == true then
-			local Shadow = CursorFrame:WaitForChild("Damage")
+			local Shadow = CursorFrame:WaitForChild("Damage") -- There is 2 text labels, a parent text label named shadow (Which is just a dark semi transparent text label), and then a child object inside of the text label.
 
 			-- Tweens the Text Transparency so it becomes visble --
 			TweenService:Create(Shadow, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0,false,0), {TextTransparency = 0}):Play()
 
 			-- Update Stack Amount --
-			totalDamage = Damage + totalDamage
-			print(totalDamage)
-			if Charge and ChargeDamage > 0 then
-				if Charge >= 1 then
-					Shadow.Text = tostring(ChargeDamage)
-				else
-					Shadow.Text = tostring(totalDamage)
+			totalDamage = Damage + totalDamage -- The total damage variable gets changed to whatever new damage is added on top of the total amount of damage inflicted.
+			print(totalDamage) -- Used for debugging incase something goes wrong
+			
+			
+			if Shadow then --if the Shadow text exists then:
+				-- Charge is only applicable when a recon gun is selected (Aka a sniper) --
+				if Charge and ChargeDamage > 0 then -- If there is charge, and the additional charge damage is greater than 0 then
+					if Charge >= 1 then -- if the gun is fully charged when the indicator is made, it will:
+						Shadow.Text = tostring(ChargeDamage) -- Make the text show its charge damage
+					else -- If the gun isnt fully charged then:
+						Shadow.Text = tostring(totalDamage) -- The charge damage wont be factored into the damage indicator
+					end
 				end
 			else
-				Shadow.Text = tostring(totalDamage)
-			end
-			
-			if Shadow then
-				-- Charge is only applicable when a recon gun is selected (Aka a sniper) --
-				if Charge and ChargeDamage > 0 then
-					if Charge >= 1 then
-						Shadow.Text = tostring(ChargeDamage)
-					else
-						Shadow.Text = tostring(totalDamage)
-					end	
-				else
-					Shadow.Text = tostring(totalDamage)
-				end
+				Shadow.Text = tostring(totalDamage) -- If there is no charge, just show the damage noramlly
 			end
 
 			-- Change Color on Heaadshot --
-			if Part.Name == "Head" then
-				Shadow.TextColor3 = Color3.fromRGB(255, 70, 70)
+			if Part.Name == "Head" then -- If the part name that got hit is called head then:
+				Shadow.TextColor3 = Color3.fromRGB(255, 70, 70) -- Change the text color to be red
 			else
-				Shadow.TextColor3 = Color3.fromRGB(255, 255, 255)
+				Shadow.TextColor3 = Color3.fromRGB(255, 255, 255) -- Otherwise set it to be white
 			end
 
 			-- Keep TextStroke visible only on main text --
-			Shadow.TextStrokeTransparency = 0
-			if Shadow then
-				Shadow.TextStrokeTransparency = 1
+			Shadow.TextStrokeTransparency = 0 -- Set the stroke to be 0
+			if Shadow then -- if the shadow exists:
+				Shadow.TextStrokeTransparency = 1 -- Set its transparency to 1
 			end
 
 			-- Tween visible (main text only, not the shadow) --
-			if not indicatorVisible then
-				indicatorVisible = true
-				ClientServices:tweenTransparency(Shadow, 0, ShowTime)
+			if not indicatorVisible then -- If the indicator isnt visible then
+				indicatorVisible = true -- Make it visible
+				tweenTransparency(Shadow, 0, ShowTime) -- Tween the transparency of the indicator to make it visible
 			end
 
 			-- Fade timer logic --
-			fadeTimerId = Firerate + fadeTimerId
-			local thisTimerId = fadeTimerId
+			fadeTimerId = Firerate + fadeTimerId -- Increase the fadeTimer time by the fire rate
+			local thisTimerId = fadeTimerId -- Set the current timer for this weapon to fadetimer
 
-			task.delay(FadeDelay, function()
-				if thisTimerId == fadeTimerId then
+			task.delay(FadeDelay, function() -- Wait by "Fade Delay" seconds, then:
+				if thisTimerId == fadeTimerId then -- If the current timer is equal to the fade timer ID then:
 					-- Fade out main text only, keep shadow --
-					tweenTransparency(Shadow, 1, FadeTime)
-					indicatorVisible = false
-					totalDamage = 0
-					print("Resetting Damage")
-					TweenService:Create(Shadow, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0,false,0), {TextTransparency = 1}):Play()
-
+					tweenTransparency(Shadow, 1, FadeTime) -- Set the damage indicator to be invisible
+					indicatorVisible = false -- Variable it to being invisible so the rest of the script knows the damage indicator is no longer visible
+					totalDamage = 0 -- Reset the total damage variable to 0
+					print("Resetting Damage") -- For debugging
 				end
 			end)
 		else
 			-- If the stacking setting isnt enabled, then it'll make a physical damage indicator as opposed to a UI one, and parent it to the character of the hit player --
-			local indicator = script:WaitForChild("DmgIndicator"):Clone()
-			indicator:WaitForChild("Frame"):WaitForChild("Damage").Text = Damage
-			if Charge then
-				if Charge >= 1 then
-					indicator:WaitForChild("Frame"):WaitForChild("Damage").Text = tostring(ChargeDamage)
-				else
-					indicator:WaitForChild("Frame"):WaitForChild("Damage").Text = Damage			
+			local indicator = script:WaitForChild("DmgIndicator"):Clone() -- Clone the "BillboardGUI" object named "DmgIndicator" thats a child inside of this script
+			indicator:WaitForChild("Frame"):WaitForChild("Damage").Text = Damage -- Set the Text inside of the frame inside of the Billbaord GUI to whatever damage is being inflicted
+			if Charge then -- If there is charge then
+				if Charge >= 1 then -- if its fully charged then
+					indicator:WaitForChild("Frame"):WaitForChild("Damage").Text = tostring(ChargeDamage) -- Set the text to the charge damage
+				else -- Otherwise:
+					indicator:WaitForChild("Frame"):WaitForChild("Damage").Text = Damage -- Set the text to only have the normal damage
 				end
-			else
-				indicator:WaitForChild("Frame"):WaitForChild("Damage").Text = Damage			
-
+			else -- If there is no charge then:
+				indicator:WaitForChild("Frame"):WaitForChild("Damage").Text = Damage -- Only show the damage normally
 			end
 			
-			indicator.Enabled = true
-			if Part.Name == "Head" then
-				indicator:WaitForChild("Frame"):WaitForChild("Damage").TextColor3 = Color3.fromRGB(255, 70, 70)
+			indicator.Enabled = true -- Set the billboard UI to be enabled (Since by default its not enabled)
+			if Part.Name == "Head" then -- If the part thats being hit is the head then:
+				indicator:WaitForChild("Frame"):WaitForChild("Damage").TextColor3 = Color3.fromRGB(255, 70, 70) -- Change the text color to red
 			end
-			local Attachment = Instance.new("Part")
-			Attachment.Transparency = 1
-			Attachment.Anchored = true
-			Attachment.CanCollide = false
-			Attachment.CanQuery = false
-			Attachment.Position = Part.Position
-			Attachment.Parent = workspace
-			Attachment.Size = Vector3.new(0.001,0.001,0.001)
-			indicator.Parent = Attachment
-			local Ran1 = math.random(1,2)
-			local RandomSide
-			if Ran1 == 1 then
-				indicator.SizeOffset = Vector2.new(1,0)
-				RandomSide = Vector2.new(3,0)
+			local Attachment = Instance.new("Part") -- Create a new part (This is going to be used as the parent for the damage indicator)
+			Attachment.Transparency = 1 -- Set its transparency to 1
+			Attachment.Anchored = true -- Anchor it so it doesnt fall
+			Attachment.CanCollide = false -- Turn off collisions so that it doesnt interact with anything
+			Attachment.CanQuery = false -- Disable its querying so that we cant shoot it
+			Attachment.Position = Part.Position -- Set its position to wherever the hit part is
+			Attachment.Parent = workspace -- Parent it to workspace so it actually exists
+			Attachment.Size = Vector3.new(0.001,0.001,0.001) -- Set its size to be extremely small
+			indicator.Parent = Attachment --  Set the parent of the indicator billboard ui clone to the new part we made
+			local Ran1 = math.random(1,2) -- This is to get a random number between 1 or 2.
+			local RandomSide -- Leaving this asa blank variable for now, but it will be used for which side the damage indicator comes out of
+			if Ran1 == 1 then -- If its 1 then:
+				indicator.SizeOffset = Vector2.new(1,0) -- Set the Size offset to come via the right side
+				RandomSide = Vector2.new(3,0) -- Set the Side that the indicator comes out of to the right
 			else
-				indicator.SizeOffset = Vector2.new(-1,0)
-				RandomSide = Vector2.new(-3,0)
+				indicator.SizeOffset = Vector2.new(-1,0) -- Otherwise set the size offset to -1
+				RandomSide = Vector2.new(-3,0) -- Change the side it comes out of to the left
 			end
-			Debris:AddItem(indicator, 1.1)
+			Debris:AddItem(indicator, 1.1) -- After 1.1 seconds, have debris service destroy the indicator billboard clone (Also a fail safe in case for whatever reason the end size tween doesnt work, itll have it destroyed regardless)
 
-			local IndicatorTween = TweenService:Create(indicator, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0,false,0), {SizeOffset = RandomSide})
-			IndicatorTween:Play()
-			IndicatorTween.Completed:Connect(function()
-				local IndicatorTween = TweenService:Create(indicator, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0,false,0), {Size = UDim2.new(0,0,0,0)}):Play()
+			local IndicatorTween = TweenService:Create(indicator, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0,false,0), {SizeOffset = RandomSide}) -- This is the tween that tweens the size offset size (To animate it moving)
+			IndicatorTween:Play() -- Plays the indicator tween
+			IndicatorTween.Completed:Connect(function() -- When the indicator tween is finished then:
+				local IndicatorTween = TweenService:Create(indicator, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 0,false,0), {Size = UDim2.new(0,0,0,0)}):Play() -- Tween its size to 0 so it looks smooth
 			end)
 		end
 	end
 end
 
 -- This is the Hit Marker thats stuck to the cursor via the UI, it'll play whenever you hit something --
-local function hitMarker(Part)
-	if Settings:WaitForChild("Hitmarker").Value == true then
-		if HitmarkerTypeSetting.Value == "Expand" then
-			-- If the option is expand it'll play a tween animation that expands the size of the hitmarker, then tweens the transparency simultaniously--
-			HitmarkerImage.Rotation = 0
-			HitmarkerImage.Size = UDim2.new(.4,0,.4,0)
-			HitmarkerImage.ImageTransparency = 0
-			HitmarkerImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-			local SizeTween = TweenService:Create(HitmarkerImage, TweenInfo.new(.4,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {Size = UDim2.new(1.5,0,1.5,0)})
-			TweenService:Create(HitmarkerImage, TweenInfo.new(.4,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {ImageTransparency = 1}):Play()
-			SizeTween:Play()
-			SizeTween.Completed:Connect(function()
-				HitmarkerImage.ImageTransparency = 1
-				HitmarkerImage.Size = UDim2.new(.4,0,.4,0)
+local function hitMarker()
+	if Settings:WaitForChild("Hitmarker").Value == true then -- If the Player has hitmarkers turned on then:
+		if HitmarkerTypeSetting.Value == "Expand" then 	-- If the option is expand it'll play a tween animation that expands the size of the hitmarker, then tweens the transparency simultaniously
+			HitmarkerImage.Rotation = 0 -- Reset the rotation in case the player is swapping from rotation to this
+			HitmarkerImage.Size = UDim2.new(.4,0,.4,0) -- Set the size to a really small one
+			HitmarkerImage.ImageTransparency = 0 -- Set the image transparency of the hitmarker image to be visible
+			HitmarkerImage.ImageColor3 = Color3.fromRGB(255, 255, 255) -- Set the hit markers color to white (It changes to red upon the player getting a kill)
+			local SizeTween = TweenService:Create(HitmarkerImage, TweenInfo.new(.4,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {Size = UDim2.new(1.5,0,1.5,0)}) -- Tween the size up to 1.5 x 1.5 (Scale)
+			TweenService:Create(HitmarkerImage, TweenInfo.new(.4,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {ImageTransparency = 1}):Play() -- Set the image transparency to 1 so that it becomes invisible in .4 seconds
+			SizeTween:Play() -- Play the size tween
+			SizeTween.Completed:Connect(function() -- When the tween is done:
+				HitmarkerImage.ImageTransparency = 1 -- Ensure the transparency is 1
+				HitmarkerImage.Size = UDim2.new(.4,0,.4,0) -- Reset its size
 			end)
-		elseif HitmarkerTypeSetting.Value == "Rotate" then
-			-- If the option is rotate then it'll rotate the hitmarker, if the rotation is 180 or greater than 180 then it'll reset the cursors rotation --
-			HitmarkerImage.Size = UDim2.new(1,0,1,0)
-			HitmarkerImage.ImageTransparency = 0
-			if CurrentRotation >= 180 then
-				CurrentRotation = -180
-				HitmarkerImage.Rotation = CurrentRotation
+		elseif HitmarkerTypeSetting.Value == "Rotate" then 	-- If the option is rotate then it'll rotate the hitmarker, if the rotation is 180 or greater than 180 then it'll reset the cursors rotation 
+			HitmarkerImage.Size = UDim2.new(1,0,1,0) -- Set the size of the hitmarker to default (1x1 scale)
+			HitmarkerImage.ImageTransparency = 0 -- Ensure the hitmarkers fully visible
+			if CurrentRotation >= 180 then -- If the current rotation is greater than or equal to 180 degrees then:
+				CurrentRotation = -180 -- Reset it to -180
+				HitmarkerImage.Rotation = CurrentRotation -- Set the hitmarker image's rotation to 0
 			end
-			CurrentRotation = CurrentRotation + 20
-			HitmarkerImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-			local RotationTween = TweenService:Create(HitmarkerImage, TweenInfo.new(.1,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {Rotation = CurrentRotation})
-			RotationTween:Play()
+			CurrentRotation = CurrentRotation + 20 -- Every time the hitMarker() function is called increase the current rotation of the hitmarker by 20 degrees
+			HitmarkerImage.ImageColor3 = Color3.fromRGB(255, 255, 255) -- Ensure the image color is white (It changes to red upon the player getting a kill)
+			local RotationTween = TweenService:Create(HitmarkerImage, TweenInfo.new(.1,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {Rotation = CurrentRotation}) -- Tween the rotation of the hitmarker
+			RotationTween:Play() -- Play the RotationTween
 
-			TweenService:Create(HitmarkerImage, TweenInfo.new(.4,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {ImageTransparency = 1}):Play()
-			RotationTween.Completed:Connect(function()
-				HitmarkerImage.ImageTransparency = 1
+			TweenService:Create(HitmarkerImage, TweenInfo.new(.4,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {ImageTransparency = 1}):Play() -- Simultaniously tween the transparency of the hitmarkers image
+			RotationTween.Completed:Connect(function() -- When the rotation tween is done,
+				HitmarkerImage.ImageTransparency = 1 -- Ensure that the image transparency is set back to 1 just in case
 
 			end)
-		elseif HitmarkerTypeSetting.Value == "Fade" then
-			-- If the option is fade it'll just make the hitmarker fade in, then fade out via its image transparency --
-			HitmarkerImage.Rotation = 0
-			HitmarkerImage.Size = UDim2.new(1,0,1,0)
-			HitmarkerImage.ImageTransparency = .1
+		elseif HitmarkerTypeSetting.Value == "Fade" then -- If the option is fade it'll just make the hitmarker fade in, then fade out via its image transparency
+			HitmarkerImage.Rotation = 0 -- Reset its rotation to 0
+			HitmarkerImage.Size = UDim2.new(1,0,1,0) -- Ensure the size is correct
+			HitmarkerImage.ImageTransparency = .1 -- Set the image transparency to already be semi transparent
 
 
-			HitmarkerImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+			HitmarkerImage.ImageColor3 = Color3.fromRGB(255, 255, 255) -- Ensure the colors set to white as when you get a kill it changes the hitmarker color to red
 
 
-			local FadeTween = TweenService:Create(HitmarkerImage, TweenInfo.new(.6,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {ImageTransparency = 0})
-			FadeTween:Play()
+			local FadeTween = TweenService:Create(HitmarkerImage, TweenInfo.new(.6,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {ImageTransparency = 0}) -- Set the hitmarkers tween to be fully visible
+			FadeTween:Play() -- Play the tween
 
-			FadeTween.Completed:Connect(function()
-				TweenService:Create(HitmarkerImage, TweenInfo.new(.6,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {ImageTransparency = 1}):Play()
+			FadeTween.Completed:Connect(function() -- When this tween is done:
+				TweenService:Create(HitmarkerImage, TweenInfo.new(.6,Enum.EasingStyle.Quad,Enum.EasingDirection.InOut, 0,false,0), {ImageTransparency = 1}):Play() -- Tween it again so that the Hit Marker is invisible
 			end)
 		end
 	end
