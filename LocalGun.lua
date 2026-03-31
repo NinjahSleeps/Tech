@@ -31,7 +31,7 @@ local FadeDelay = 1 -- This is the Delay until the "Stack" damage indicator fade
 local FadeTime = 0.1 -- This is the time the "Stack" damage indicator takes to fade away
 local ShowTIme = 0.85 -- This is how long the "Stack" damage indicator is shown for
 local indicatorVisible = false -- This is used to help set how long the fade timer is visible for
-local Holding = false -- This is to check if the player is holding the gun
+local Holding = false -- This is to check if the player is holding their mouse down whilst the guns equipped
 
 -- Remote Events --
 local RemoteEvents= ReplicatedStorage:WaitForChild("RemoteEvents") -- Referencing my Remote Events folder
@@ -282,193 +282,181 @@ local function hitMarker()
 end
 
 -- Simulate Beam --
-local function Beam(StartPos, EndPos, PlrShooting, plr)
+local function Beam(StartPos, EndPos, PlrShooting) -- Gets the Start position of where the guns ShootPart is, End position (Where the beam hits), sets the beam color to the player whos shootings beam color.
 	-- Create the Beam --
-	local beam = Instance.new("Beam")
-	local Attachment1 = Instance.new("Attachment", workspace.Terrain)
-	local Attachment2 = Instance.new("Attachment", workspace.Terrain)
+	local beam = Instance.new("Beam") -- Creates Beam
+	local Attachment1 = Instance.new("Attachment", workspace.Terrain) -- Creates attachement and parents it to terrain
+	local Attachment2 = Instance.new("Attachment", workspace.Terrain) -- Creates second attachement and parents it to terrain
 
-	Attachment1.Name = "Attachment1"
-	Attachment2.Name = "Attachment2"
-	Attachment1.Position = StartPos
-	Attachment2.Position = EndPos
+	Attachment1.Name = "Attachment1" -- Names the attachement
+	Attachment2.Name = "Attachment2" -- Names the second attachement
+	Attachment1.Position = StartPos -- Sets the position first attachement to the Tools Tip
+	Attachment2.Position = EndPos -- Sets the position of hte second attachement to wherever the player's shooting
 
 	-- Beam Physical Attributes --
-	beam.Name = Player.Name
+	beam.Name = PlrShooting.Name -- Sets the name of the beam to the Player whos shootings name.
 	beam.Color = ColorSequence.new(PlrShooting.TeamColor.Color)
-	beam.Attachment0 = Attachment1
-	beam.Attachment1 = Attachment2
-	beam.Parent = workspace
-	beam.FaceCamera = true
+	beam.Attachment0 = Attachment1 -- Sets the beams first attachement to Attachement 1.
+	beam.Attachment1 = Attachment2 -- Sets the beams second attachement to Attachement 2 to simulate the beam shooting at somebody
+	beam.Parent = workspace -- Parents the beam to workspace after everythings moved to help save render data
+	beam.FaceCamera = true -- Sets this to true so the beam looks more 3d
 	
-	beam.LightEmission = 1
-	beam.LightInfluence = 0
-	beam.Brightness = 1
+	beam.LightEmission = 1 -- Adding light emission to give off the laser beam type vibe
+	beam.LightInfluence = 0 -- Sets the light influence to 0 so that the beam doesnt turn dark in a dark environment
+	beam.Brightness = 1 -- Adds a brightness to increase the visibility of the beam
 	
-	if Settings:WaitForChild("DynamicRays").Value == false then
+	if Settings:WaitForChild("DynamicRays").Value == false then -- If Dynamic Rays are off then:
 		-- If Dynamic Rays are off then make the beam a solid beam --
-		beam.Texture = 0
-		beam.TextureSpeed = 0 
-		beam.Transparency = NumberSequence.new(0,1)
-		beam.Texture = 'rbxassetid://2950987178'
-		beam.TextureMode = Enum.TextureMode.Stretch
-		beam.TextureSpeed = 4
-		beam.Width0 = 0.2
-		beam.Width1 = 0.1
-		Debris:AddItem(beam, .025)
-		Debris:AddItem(Attachment1, .1)
-		Debris:AddItem(Attachment2, .1)
+		beam.Transparency = NumberSequence.new(0,1) -- Give the beam a nice fade effect
+		beam.Texture = 'rbxassetid://2950987178' -- Give it a thin beam texture
+		beam.TextureMode = Enum.TextureMode.Stretch -- Sets the beam to stretch
+		beam.Width0 = 0.2 -- Sets the width near the tip to be thicker to give the bullet a better look
+		beam.Width1 = 0.1 -- Sets the width near the end to be thinner so it looks like if its traveling a farther distance
+		Debris:AddItem(beam, .025) -- Adds the beam to debris service to clear it
+		Debris:AddItem(Attachment1, .1) -- Adds the attachement to debris service to clear it
+		Debris:AddItem(Attachment2, .1) -- Adds the second attachement to debris service to clear it
 	else 
 		-- If Dynamic Rays are on then it'll play an "Animation" via the beam texture, speed, and length --
-		beam.Texture = 'rbxassetid://11226108137'
-		beam.TextureSpeed = 4
-		beam.Transparency = NumberSequence.new(0,0)
-		beam.TextureMode = Enum.TextureMode.Stretch
-		beam.TextureLength = .8
-		beam.Width0 = 1.3
-		beam.Width1 = 1.5
-		Debris:AddItem(beam, .04)
-		Debris:AddItem(Attachment1, .04)
-		Debris:AddItem(Attachment2, .04)
+		beam.Texture = 'rbxassetid://11226108137' -- Sets the beam texture to an animated one with gaps
+		beam.TextureSpeed = 4 -- Gives it a texture speed of 4 to simulate the bullet flying
+		beam.Transparency = NumberSequence.new(0,0) -- Sets the transparency to make it fully visible
+		beam.TextureMode = Enum.TextureMode.Stretch -- Sets the texture mode to stretch so it stretches across the beam
+		beam.TextureLength = .8 -- Gives it a texture length of .8 so itll only simulate 1 bullet per shot
+		beam.Width0 = 1.3 -- Sets the first width to be thinner to make the bullet more visible
+		beam.Width1 = 1.5 -- Sets the second width to be thicker to improve visibility of it from a farther distance
+		Debris:AddItem(beam, .04) -- Adds the beam to debris service for memory reasons
+		Debris:AddItem(Attachment1, .04) -- Adds the first attachement to debris service
+		Debris:AddItem(Attachment2, .04) -- Adds the second attachement to debris service
 	end
 end
 
 -- This function increases the amount of "Ammo" via the variable, plays a sound, and updates the ammo bar's circle --
 local function Reload()
-	IsReloading = true
-	RELOADDEBOUNCE = true
-	ReloadSound:Play()
-	while Ammo < MaxAmmo do
-		task.wait(GunSettings.ReloadWait)
-		RELOADDEBOUNCE = true
-		Ammo += 1
-		ConsistentReload:Play()
-		UpdateCircle()
+	IsReloading = true -- Sets the reloading global variable to true
+	RELOADDEBOUNCE = true -- Sets the reload global variable to true to prevent double reloading
+	ReloadSound:Play() -- Plays the initial reload sound
+	while Ammo < MaxAmmo do -- While current ammo is less than the max ammo the gun can hold:
+		task.wait(GunSettings.ReloadWait) -- Wait by the "Reload Wait" time inside of the gun settings module
+		RELOADDEBOUNCE = true -- Ensure the reload debounce is still true
+		Ammo += 1 -- Increase the ammo by one
+		ConsistentReload:Play() -- Play the relaod tick sound
+		UpdateCircle() -- Update the ammo bar circle
 	end
-	RELOADDEBOUNCE = false
-	IsReloading = false
+	RELOADDEBOUNCE = false -- Once the gun is done reloading set the reload debounce to false
+	IsReloading = false -- Set the global isreloading variable to false
 end
 
 -- Spread Handler (provides a random point inside of a cone) --
-local function RandomCone(axis, angle)
-	local cosAngle = math.cos(angle)
-	local z = 1 - math.random() * (1 - cosAngle)
-	local phi = math.random() * math.pi * 2
-	local r = math.sqrt(1 - z * z)
-	local x, y = r * math.cos(phi), r * math.sin(phi)
-	local vec = Vector3.new(x, y, z)
-	if axis.Z > 0.9999 then
-		return vec
-	elseif axis.Z < -0.9999 then
-		return -vec
+local function RandomCone(axis, angle) -- axis = direction the cone points (should be UNIT VECTOR), angle = max cone angle (in radians)
+	local cosAngle = math.cos(angle) -- Get the cosine of the max angle to uniform the sampling of a cone
+	local z = 1 - math.random() * (1 - cosAngle)-- Pick a random Z value between cos(angle) and 1 to randomly pick a point over the surface of the cone
+	local phi = math.random() * math.pi * 2 -- Picks a random angle around the circle (0 to 2π) effectively spinning a point across a cone axis
+	local r = math.sqrt(1 - z * z)	-- Computes the radius of the circle at height z on the unit sphere
+
+
+	local x = r * math.cos(phi)	-- Converts the polar coordinates (r, phi) into Cartesian (x, y)
+	local y = r * math.sin(phi) -- Same thing as the line above but for the Y axis
+
+	
+	local vec = Vector3.new(x, y, z) -- Provides a random vector within the cone
+
+	if axis.Z > 0.9999 then -- If axis is already almost pointing straight up (+Z),
+		return vec -- No rotation needed
 	end
-	local orth = Vector3.zAxis:Cross(axis)
-	local rot = math.acos(axis:Dot(Vector3.zAxis))
-	return CFrame.fromAxisAngle(orth, rot) * vec
+
+	if axis.Z < -0.9999 then --if axis is pointing straight down (-Z),
+		return -vec -- Flip the vector
+	end
+
+	local orth = Vector3.zAxis:Cross(axis) 	-- Finds a perpendicular axis to rotate around
+	local rot = math.acos(axis:Dot(Vector3.zAxis))-- Finds an angle between Z-axis and target axis using dot product
+
+	return CFrame.fromAxisAngle(orth, rot) * vec -- Returns the CFrame with spread applied
 end
 
 -- Adds a box around the hit part --
-local function hitBox(Part)
-	if Settings:WaitForChild("Hitboxes").Value == true then
-		local hitbox = script:WaitForChild("SelectionBox"):Clone()
-		if Part.Name == "Head" then
-			hitbox.Color3 = Color3.fromRGB(113, 0, 0)
-		else
-			hitbox.Color3 = Color3.fromRGB(255, 255, 255)
+local function hitBox(Part) -- Gets the part to add the hitbox at
+	if Settings:WaitForChild("Hitboxes").Value == true then -- If the hitbox setting is turned on then
+		local hitbox = script:WaitForChild("SelectionBox"):Clone() -- Clone the selectionbox thats a child inside of this script
+		if Part.Name == "Head" then -- If the part is called head then:
+			hitbox.Color3 = Color3.fromRGB(113, 0, 0) -- Set hte hitbox color to be red
+		else -- Otherwise
+			hitbox.Color3 = Color3.fromRGB(255, 255, 255) -- Set it to be white
 		end
-		hitbox.Parent = Part
-		hitbox.Adornee = Part
-		Debris:AddItem(hitbox, 1.1)
+		hitbox.Parent = Part -- Set the hitbox parent to the part
+		hitbox.Adornee = Part -- And the adornee so it displays in workspace
+		Debris:AddItem(hitbox, 1.1) -- Add the hitbox to debris so it dissappears in case the tweening doesnt work (In the lines below) and for memory reasons
 		-- Tweens the transparency of the box --
-		local HitboxTween = TweenService:Create(hitbox, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {Transparency = 0})
-		HitboxTween:Play()
-		HitboxTween.Completed:Connect(function()
-			TweenService:Create(hitbox, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {Transparency = 1}):Play()
+		local HitboxTween = TweenService:Create(hitbox, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {Transparency = 0}) -- Tweens transparency of hitbox to 0 (It starts off fully transparent by default)
+		HitboxTween:Play() -- Plays the tween
+		HitboxTween.Completed:Connect(function() -- When the tweens finished:
+			TweenService:Create(hitbox, TweenInfo.new(.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {Transparency = 1}):Play() -- Tween it to be invisible again
 		end)
 	end
 end
 
 
 -- Handles the Ray --
-local function commitRay(MouseHitPosition, ShellCount, MinDistance, MaxDistance, Spread, Shootpart, ShootSound, HitSound, HeadshotDamage, Damage, Firerate, Charge, ChargeDamage)
-	-- Adds Hits/Misses to a table --
-	local Hits = {}
-	local Misses = {}
-	local Origin = Player.Character:WaitForChild("Head").Position
-	local Endpoint = MouseHitPosition
+local function commitRay(MouseHitPosition, ShellCount, MinDistance, MaxDistance, Spread, Shootpart, ShootSound, HitSound, HeadshotDamage, Damage, Firerate, Charge, ChargeDamage) -- Gets the Position the mouse hit, shell count (Normally set to 1 if its not a shotgun), min distance (Distance the bullet can go before spread is factored in), Max Distance the bullet can travel, bullet spread, the tools tip, the HitSound, HeadShot Damage, Normal Damage, Firerate, Charge, and the Charge Damage of the gun)
+	local Hits = {} -- Creates a Hits Table for all shots that hit a player
+	local Misses = {} -- Creates a Misses table for all shots that miss a player
+	local Origin = Player.Character:WaitForChild("Head").Position -- Sets the origin of the raycast to the head to prevent wall banging
+	local Endpoint = MouseHitPosition -- Sets the endpoint to the mousehit position for the raycast
 	
-	for i=ShellCount, 1, -1 do
-		-- Added shell count for shotgun's --
-		local Params = RaycastParams.new()
-		Params.FilterDescendantsInstances = {script.Parent, Player.Character}
-		Params.FilterType = Enum.RaycastFilterType.Exclude
-		local Axis = (Endpoint - Origin).Unit
-		-- Adds Spread --
-		local Direction = RandomCone(Axis, math.rad(Spread)) * MaxDistance
-		local AxisLength = (Endpoint-Origin).Magnitude
-		if AxisLength <= MinDistance then
+	for i=ShellCount, 1, -1 do -- Repeat this for each shell in shellcount
+		local Params = RaycastParams.new() -- Creates a new raycast
+		Params.FilterDescendantsInstances = {script.Parent, Player.Character} -- Makes sure that you cant shoot yourself or the tool
+		Params.FilterType = Enum.RaycastFilterType.Exclude -- This is to exclude the items mentioned above to exlude
+		local Axis = (Endpoint - Origin).Unit -- This is the initial raycast axis
+		local Direction = RandomCone(Axis, math.rad(Spread)) * MaxDistance -- This is the direction that the raycast is going (With spread applied)
+		local AxisLength = (Endpoint-Origin).Magnitude -- This gets how long the beam length is
+		if AxisLength <= MinDistance then -- If the beam length is less than min distance then
 			-- If the target is close enough, then don't add spread --
-			Direction = (Endpoint - Origin).Unit * 10000
+			Direction = (Endpoint - Origin).Unit * 10000 -- Eliminate all spread
 		end
-		local RaycastResult = workspace:Raycast(Origin,Direction,Params)
+		local RaycastResult = workspace:Raycast(Origin,Direction,Params) -- The result of the raycast with all of the parameters above
 		-- If something gets hit then:
-		if RaycastResult then
-			-- Play shoot sound and handle raycasts
-			ShootSound:Play()
-			local Hit = RaycastResult.Instance
-			local Position = RaycastResult.Position
+		if RaycastResult then -- If something gets hit then:
+			ShootSound:Play() -- Play the shoot sound
+			local Hit = RaycastResult.Instance -- Get hte instance that was hit
+			local Position = RaycastResult.Position -- Get the position of the raycast
 
-			ClientServices:Beam(Shootpart.Position, Position, Player)
-			if Hit:IsA("BasePart") then
-				if Hit.Parent:FindFirstChild("Humanoid") or Hit.Parent.Parent:FindFirstChild("Humanoid") then
+			Beam(Shootpart.Position, Position, Player) -- Simulate the beam, and pas the part that was shot, where the bullet landed, and the player whos shot
+			if Hit:IsA("BasePart") then -- If the part that was hit is a basepart then:
+				if Hit.Parent:FindFirstChild("Humanoid") or Hit.Parent.Parent:FindFirstChild("Humanoid") then -- Check if its a humanoid
 
-					local Humanoid = Hit.Parent:FindFirstChild("Humanoid") or Hit.Parent.Parent:FindFirstChild("Humanoid")
-					if Humanoid.Health > 0 then
-						if RaycastResult.Instance.Name == "Head" then
-							-- Adds a hitbox around the hit part --
-							hitBox(RaycastResult.Instance)
-
-							-- Indicates the damage caused prior to firing to the server so it feels more instant --
-							indicate(RaycastResult.Instance,HeadshotDamage,Firerate, Charge, ChargeDamage)
-
-							-- adds a HitMarker --
-							hitMarker(RaycastResult.Instance)
-							HitSound:Play()
-
-							-- A sound that plays whenever a player gets hit will play --
-							local NewHit = HitSound:Clone()
-							NewHit.Parent = HitSound.Parent
-							NewHit:Play()
-							Debris:AddItem(NewHit, 2)	
+					local Humanoid = Hit.Parent:FindFirstChild("Humanoid") or Hit.Parent.Parent:FindFirstChild("Humanoid") -- If its a humanoid then
+					if Humanoid.Health > 0 then -- Check if the humanoid is alive
+						if RaycastResult.Instance.Name == "Head" then -- If the head was hit then:
+							hitBox(RaycastResult.Instance) -- Add a hitbox around the head
+							indicate(RaycastResult.Instance,HeadshotDamage,Firerate, Charge, ChargeDamage)	-- Add a damage indicator prior to firing the remote event
+							hitMarker() -- Start the hitmarker thats around your cursor
+							HitSound:Play() -- Play the hitsound indicating that a player got hit
 						else
 							-- Indicates a body shot, thus triggering a hitbox to the body, the damage indicator is modified to a body shot damage indicator, then the hitmarker is triggered along with the hit sound object. --
-							ClientServices:hitBox(RaycastResult.Instance)
-							indicate(RaycastResult.Instance,Damage,Firerate, Charge, ChargeDamage)							
-							hitMarker(RaycastResult.Instance)
-							HitSound:Play()
-							local NewHit = HitSound:Clone()
-							NewHit.Parent = HitSound.Parent
-							NewHit:Play()
-							Debris:AddItem(NewHit, 2)
+							ClientServices:hitBox(RaycastResult.Instance) -- Add a hitbox around the part that got shot
+							indicate(RaycastResult.Instance,Damage,Firerate, Charge, ChargeDamage)	-- Create a damage indicator for the amount of damage dealt	
+							hitMarker(RaycastResult.Instance) -- Start the hitmarker function
+							HitSound:Play() -- Play the hitsound
 						end
 						-- This inserts all hits, the hit player character, the instance of what the raycast has hit, and the position of what was hit --
-						table.insert(Hits, {Humanoid.Parent, RaycastResult.Instance, RaycastResult.Position})
+						table.insert(Hits, {Humanoid.Parent, RaycastResult.Instance, RaycastResult.Position}) -- Insert the part and character that got hit into hits
 					else
 						-- If the player hit a dead player then it'll count it as a miss --
-						table.insert(Misses, RaycastResult.Position)
+						table.insert(Misses, RaycastResult.Position) -- Count it as a miss with the position
 					end
 				else
 					-- If the player didnt hit another player then itll count it as a miss --
-					table.insert(Misses, RaycastResult.Position)
+					table.insert(Misses, RaycastResult.Position) -- Count it as a miss with the position
 
 				end
 			end
 		else
 			-- If the player didnt hit a base part, it'll get where the player would have hit if something were there, and count as a miss --
-			ShootSound:Play()
-			local Position = Direction+Origin
-			table.insert(Misses, Position)
-			Beam(Shootpart.Position, Position, Player)
+			ShootSound:Play() -- Play the shootsound
+			local Position = Direction+Origin -- Get where the player shouldve landed if something were there (This plays in case they shoot into the void or something)
+			table.insert(Misses, Position) -- Add to misses as they didnt hit another player
+			Beam(Shootpart.Position, Position, Player) -- Simulates a beam for this as well
 
 		end
 	end
@@ -480,98 +468,96 @@ end
 
 
 -- When the gun tool is activated, it checks if the gun's being held, theres enough ammo, and we're not currently reloading --
-GUN.Activated:Connect(function()
-	Holding = true
-
-	while Holding and Ammo > 0 and RELOADDEBOUNCE == false do
-		if not Debounce then
-			Debounce = true
+GUN.Activated:Connect(function() -- When the tool is clicked while equipped:
+	Holding = true -- Set the holding variable to tru (Meaning the players mouse is being heald down whilst the gun is equipped)
+	while Holding and Ammo > 0 and RELOADDEBOUNCE == false do -- While the mouse is actively being heald down and we're not reloading:
+		if not Debounce then -- If theres no debounce then
+			Debounce = true -- Set the debounce to true
 			-- MouseHitPosition, ShellCount, MinDistance, MaxDistance, Spread, Shootpart, ShootSound, HitSound, HeadshotDamage, Damage, Firerate, Charge, ChargeDamage
-			ClientServices:commitRay(Mouse.Hit.Position, GunSettings.ShellCount, GunSettings.MinDistance, GunSettings.MaxDistance, GunSettings.Spread, SHOOTPART, ShootSound, HitSound, GunSettings.HeadshotDamage, GunSettings.Damage, GunSettings.Firerate, nil, nil)
-			Ammo -= 1
-			UpdateCircle()
-			ShootSound:Play()
-
-			task.delay(GunSettings.Firerate, function()
-				Debounce = false
+			ClientServices:commitRay(Mouse.Hit.Position, GunSettings.ShellCount, GunSettings.MinDistance, GunSettings.MaxDistance, GunSettings.Spread, SHOOTPART, ShootSound, HitSound, GunSettings.HeadshotDamage, GunSettings.Damage, GunSettings.Firerate, nil, nil) -- Run our raycast function to get our players damaged with all of our parameters
+			Ammo -= 1 -- Decrease the ammo by one since we shot
+			UpdateCircle() -- Update the Ammo Bar
+				
+			task.delay(GunSettings.Firerate, function() -- Delay setting the debounce to false by firerate seconds
+				Debounce = false -- Sets the shoot debounce to false
 			end)
 		end
 
-		task.wait()
+		task.wait() -- Waits a frame to prevent script exhaustion
 	end
 
 	-- Auto Reload Function --
-	if Ammo <= 0 then
-		Reload()
+	if Ammo <= 0 then -- If the player is out of ammo then
+		Reload() -- Reload the gun
 	end
 end)
 
 -- When the gun's equipped it'll initialize the UI --
-GUN.Equipped:Connect(function()
-	Equipped = true
-	Sounds:WaitForChild("GunEquip"):Play()
-	CanvasGroup:WaitForChild("ToolName").Text = GUN.Name
-	if IconTweenFrame:FindFirstChild(GUN.Name) then
-		PageLayout:JumpTo(IconTweenFrame:WaitForChild(GUN.Name))
-	else
-		local GunIcon = script:WaitForChild("Template"):Clone()
-		GunIcon.Name = GUN.Name
-		GunIcon.Parent = IconTweenFrame
-		PageLayout:JumpTo(GunIcon)
+GUN.Equipped:Connect(function() -- When the guns equipped:
+	Equipped = true -- Set the equipped global variable to true
+	Sounds:WaitForChild("GunEquip"):Play() -- Play the equip sound
+	CanvasGroup:WaitForChild("ToolName").Text = GUN.Name -- Set the toolname inside the ui to the name of the gun
+	if IconTweenFrame:FindFirstChild(GUN.Name) then -- Looks for the toolname inside of the GUI inside of the canvas frame that has all of our tool icons
+		PageLayout:JumpTo(IconTweenFrame:WaitForChild(GUN.Name)) -- If its visible then just jump to it (It uses a page layout)
+	else -- Otherwise
+		local GunIcon = script:WaitForChild("Template"):Clone() -- Check for an image template inside of this script and clone it
+		GunIcon.Name = GUN.Name -- Set the name of it to the guns name
+		GunIcon.Parent = IconTweenFrame -- Parent it to the canvas frame
+		PageLayout:JumpTo(GunIcon) -- Jump to it to animate it
 	end
-	TweenService:Create(CanvasGroup:WaitForChild("AmmoPercentage"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 0}):Play()
-	TweenService:Create(CanvasGroup:WaitForChild("Class"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 0}):Play()
-	TweenService:Create(CanvasGroup:WaitForChild("ToolName"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 0}):Play()
-	TweenService:Create(CanvasGroup.Parent:WaitForChild("ChargeBG"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {BackgroundTransparency = 1}):Play()
-	TweenService:Create(CanvasGroup.Parent:WaitForChild("ChargeBG"):WaitForChild("Bar"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {BackgroundTransparency = 1}):Play()
-	TweenService:Create(CanvasGroup.Parent:WaitForChild("ChargeBG"):WaitForChild("ChargeAmt"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()
+	TweenService:Create(CanvasGroup:WaitForChild("AmmoPercentage"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 0}):Play() -- Tweens the ammo percentage to be visible
+	TweenService:Create(CanvasGroup:WaitForChild("Class"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 0}):Play() -- Tweens the class text to be visible
+	TweenService:Create(CanvasGroup:WaitForChild("ToolName"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 0}):Play() -- Tweens the toolname text to be visible
+	TweenService:Create(CanvasGroup.Parent:WaitForChild("ChargeBG"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {BackgroundTransparency = 1}):Play() -- Tweens the charge background bar to be invisible (As this gun is not a recon)
+	TweenService:Create(CanvasGroup.Parent:WaitForChild("ChargeBG"):WaitForChild("Bar"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {BackgroundTransparency = 1}):Play() -- Tweens the charge bar to be invisible (as this gun is not a recon gun)
+	TweenService:Create(CanvasGroup.Parent:WaitForChild("ChargeBG"):WaitForChild("ChargeAmt"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play() -- Tweens the charge amount to be invisible (As this gun is not a recon gun)
 
-	AmmoCircle.Parent.Parent.Visible = true
+	AmmoCircle.Parent.Parent.Visible = true -- Ensures the ammo circle is visible
 
-	UpdateCircle()
+	UpdateCircle() -- Updates visuals for the ammo circle bar
 end)
 -- When gun's not shooting anymore update the variable --
-GUN.Deactivated:Connect(function()
-	Holding = false
+GUN.Deactivated:Connect(function() -- When the guns no longer being "Activated" (AKA Mouse is lifted)
+	Holding = false -- Set holding to false (Showing that we're not holding down the button)
 end)
 
 
 -- When gun's unequipped, it'll do the inverese of whats done for the equipped function (Tween most elements visibility to 1)--
-GUN.Unequipped:Connect(function()
-	Equipped = false
-	PageLayout:JumpTo(IconTweenFrame:WaitForChild("Blank"))
-	AmmoCircle.Transparency = NumberSequence.new(
+GUN.Unequipped:Connect(function() -- When the guns unequipped:
+	Equipped = false -- Set equipped global variable to false
+	PageLayout:JumpTo(IconTweenFrame:WaitForChild("Blank")) -- Make the ui showing the gun image go to nothing
+	AmmoCircle.Transparency = NumberSequence.new( -- Set the transparency of the ammo circle to:
 		{
-			NumberSequenceKeypoint.new(0,1),
-			NumberSequenceKeypoint.new(1,1),
+			NumberSequenceKeypoint.new(0,1),-- Make the left side invisible
+			NumberSequenceKeypoint.new(1,1), -- And the right side invisible
 		}
 	)
-	AmmoCircle.Parent.Parent.Visible = false
-	TweenService:Create(CanvasGroup:WaitForChild("AmmoPercentage"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()
-	TweenService:Create(CanvasGroup:WaitForChild("Class"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()
-	TweenService:Create(CanvasGroup:WaitForChild("ToolName"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()	
+	AmmoCircle.Parent.Parent.Visible = false -- Make the ammo circle bar invisible
+	TweenService:Create(CanvasGroup:WaitForChild("AmmoPercentage"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play() -- Tween the ammo percentage text to be invisible
+	TweenService:Create(CanvasGroup:WaitForChild("Class"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play() -- Tween the class text to be invisible
+	TweenService:Create(CanvasGroup:WaitForChild("ToolName"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()-- tween the toolname text to be invisible
+	-- We dont need to retween the charge bars to be invisible as they were already made invisible upon equipping --
 end)
 
 -- When the server returns beam information (Such as other players shooting) to the client, itll simulate the bullets so we can see other player's bullets.
-Event.OnClientEvent:Connect(function(plr, Shootpart, Hits, Misses)
-	for i,v in pairs(Hits) do
-		Beam(Shootpart, v[3], plr)
+Event.OnClientEvent:Connect(function(plr, Shootpart, Hits, Misses) -- When the beam event is sent to us (Only gets sent to us if another player shoots) then:
+	for i,v in pairs(Hits) do -- Get the amount of hits inside of the table
+		Beam(Shootpart, v[3], plr) -- Simulate the beam to the position of where the hit landed, and pass the player along with the shootpart to the function
 	end
 	for i,v in pairs(Misses) do
-		
-		Beam(Shootpart, v, plr)
+		Beam(Shootpart, v, plr) -- Simulate the beam to where the hit missed
 	end
 end)
 
 
 
 -- When R's pressed reload --
-UIS.InputBegan:Connect(function(Key, IsTyping)
-	if Key.KeyCode == Enum.KeyCode.R then
-		if not IsTyping then
-			if IsReloading == false then
-				if RELOADDEBOUNCE == false and Ammo < MaxAmmo then
-					Reload()
+UIS.InputBegan:Connect(function(Key, IsTyping) -- When a key is pressed, itll check if we're typing
+	if Key.KeyCode == Enum.KeyCode.R then -- If the key "R" is pressed then
+		if not IsTyping then -- if the player is not typing in chat then
+			if IsReloading == false then -- If we're not currently reloading then
+				if RELOADDEBOUNCE == false and Ammo < MaxAmmo then -- If the reload debounce isnt on and if we have less than max ammo then
+					Reload() -- Play the reload function
 				end
 			end
 
@@ -581,19 +567,17 @@ end)
 
 -- Initialize --
 
-PageLayout:JumpTo(IconTweenFrame:WaitForChild("Blank"))
-AmmoCircle.Transparency = NumberSequence.new(
+PageLayout:JumpTo(IconTweenFrame:WaitForChild("Blank")) -- Sets the gun icon to nothing
+AmmoCircle.Transparency = NumberSequence.new( -- Sets the ammo circles transparency to
 	{
-		NumberSequenceKeypoint.new(0,1),
-		NumberSequenceKeypoint.new(1,1),
+		NumberSequenceKeypoint.new(0,1), -- Invisible on the left
+		NumberSequenceKeypoint.new(1,1), --- And invisible on the right
 	}
 )
-AmmoCircle.Parent.Parent.Visible = false
+AmmoCircle.Parent.Parent.Visible = false -- Sets the ammo circle to be invisible
 
 
-UpdateCircle()
-TweenService:Create(CanvasGroup:WaitForChild("AmmoPercentage"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()
-
-TweenService:Create(CanvasGroup:WaitForChild("AmmoPercentage"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()
-TweenService:Create(CanvasGroup:WaitForChild("Class"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()
-TweenService:Create(CanvasGroup:WaitForChild("ToolName"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play()	
+UpdateCircle() -- Calls the update circle function to initialize it
+TweenService:Create(CanvasGroup:WaitForChild("AmmoPercentage"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play() -- Sets the ammo percentage text to be invisible
+TweenService:Create(CanvasGroup:WaitForChild("Class"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play() -- Sets the Class text to be invisible
+TweenService:Create(CanvasGroup:WaitForChild("ToolName"), TweenInfo.new(.1,Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, 0,false,0), {TextTransparency = 1}):Play() -- Sets the toolname textlabel to be invisible
